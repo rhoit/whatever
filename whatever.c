@@ -10,6 +10,7 @@ typedef struct {
 
 
 PG_FUNCTION_INFO_V1(complex_in);
+PG_FUNCTION_INFO_V1(complex_out);
 
 
 Datum
@@ -29,4 +30,12 @@ complex_in(PG_FUNCTION_ARGS) {
     c->real = real;
     c->imag = imag;
     PG_RETURN_POINTER(c);
+}
+
+
+Datum
+complex_out(PG_FUNCTION_ARGS) {
+    Complex *c = (Complex *) PG_GETARG_POINTER(0);
+
+    PG_RETURN_CSTRING(psprintf("(%g,%g)", c->real, c->imag));
 }
