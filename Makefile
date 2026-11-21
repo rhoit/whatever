@@ -1,4 +1,5 @@
 EXTENSION = whatever
+DATA = whatever--1.0.sql
 PG_CONFIG ?= pg_config
 
 MODULE_big = whatever
