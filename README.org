@@ -1,0 +1,114 @@
+#+TITLE: PostgreSQL C Extensions Intro
+#+DATE: 2026 Nov 21, Saturday
+
+
+* INTRO
+
+  A minimal PostgreSQL C extension (=whatever=) implementing a custom =complex=
+  number data type (=complex_in= / =complex_out=), based on the workshop
+  [[https://2026.pgconf.org.np/speaker/users/38275741-9346-454c-8a07-75cf8b1dfd28][Write PostgreSQL Extensions in C]] at [[https://2026.pgconf.org.np][pgconf.org.np]].
+
+  Prerequisites
+  - PostgreSQL server
+  - development headers (=pg_config= / =PGXS=),
+  - =gcc=
+  - =make=
+
+* CLEAN & SETUP
+
+  #+HEADER: :results silent :eval no-export
+  #+BEGIN_SRC sh :exports both
+    >/dev/null psql whatever --command='\q' || createdb whatever
+  #+END_SRC
+
+  #+HEADER: :results output :eval no-export
+  #+BEGIN_SRC sh :exports both
+    2>&1 make clean && make
+  #+END_SRC
+
+  #+RESULTS:
+  : rm -f whatever.so   libwhatever.a  libwhatever.pc
+  : rm -f whatever.o whatever.bc
+  : gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -Wmissing-variable-declarations -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -march=x86-64 -mtune=generic -O2 -pipe -fno-plt -fexceptions         -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security         -fstack-clash-protection -fcf-protection         -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g -ffile-prefix-map=/build/postgresql/src=/usr/src/debug/postgresql -flto=auto -ffat-lto-objects -fPIC -fvisibility=hidden -I. -I./ -I/usr/include/postgresql/server -I/usr/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2     -c -o whatever.o whatever.c
+  : gcc -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -Wmissing-variable-declarations -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -march=x86-64 -mtune=generic -O2 -pipe -fno-plt -fexceptions         -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security         -fstack-clash-protection -fcf-protection         -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -g -ffile-prefix-map=/build/postgresql/src=/usr/src/debug/postgresql -flto=auto -ffat-lto-objects -fPIC -fvisibility=hidden -shared -o whatever.so whatever.o -L/usr/lib  -Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now          -Wl,-z,pack-relative-relocs -flto=auto  -Wl,--as-needed -fvisibility=hidden
+  : /usr/bin/clang -Wno-ignored-attributes -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-unused-command-line-argument -Wno-compound-token-split-by-macro -Wno-format-truncation -O2  -I. -I./ -I/usr/include/postgresql/server -I/usr/include/postgresql/internal -D_GNU_SOURCE  -I/usr/include/libxml2    -flto=thin -emit-llvm -c -o whatever.bc whatever.c
+
+* INSTALL
+
+  Installing into PostgreSQL's system directories requires elevated
+  privileges
+
+  #+HEADER: :results output :eval no-export
+  #+BEGIN_SRC sh :exports both :dir (concat "/sudo::" (expand-file-name "."))
+    2>&1 make install
+  #+END_SRC
+
+  #+RESULTS:
+  #+begin_example
+  /usr/bin/mkdir -p '/usr/lib/postgresql'
+  /usr/bin/mkdir -p '/usr/share/postgresql/extension'
+  /usr/bin/mkdir -p '/usr/share/postgresql/extension'
+  /usr/bin/install -c -m 755  whatever.so '/usr/lib/postgresql/whatever.so'
+  /usr/bin/install -c -m 644 .//whatever.control '/usr/share/postgresql/extension/'
+  /usr/bin/install -c -m 644 .//whatever--1.0.sql  '/usr/share/postgresql/extension/'
+  /usr/bin/mkdir -p '/usr/lib/postgresql/bitcode/whatever'
+  /usr/bin/mkdir -p '/usr/lib/postgresql/bitcode'/whatever/
+  /usr/bin/install -c -m 644 whatever.bc '/usr/lib/postgresql/bitcode'/whatever/./
+  cd '/usr/lib/postgresql/bitcode' && /usr/bin/llvm-lto -thinlto -thinlto-action=thinlink -o whatever.index.bc whatever/whatever.bc
+  #+end_example
+
+  NOTE: after rebuilding and reinstalling =whatever.so=, a new
+  PostgreSQL session is required to load the updated shared library
+
+  #+HEADER: :cmdline whatever
+  #+HEADER: :prologue "\\pset linestyle ascii\\pset format aligned"
+  #+HEADER: :results output :eval no-export
+  #+BEGIN_SRC sql :engine postgresql :exports both
+    DROP EXTENSION whatever;
+    CREATE EXTENSION IF NOT EXISTS whatever;
+  #+END_SRC
+
+  #+RESULTS:
+  : DROP EXTENSION
+  : CREATE EXTENSION
+
+* EXTENSION
+** complex-in
+
+   #+HEADER: :cmdline whatever
+   #+HEADER: :results output table :eval no-export
+   #+BEGIN_SRC sql :engine postgresql :exports both
+     SELECT complex_in('(3, 4)');
+   #+END_SRC
+
+   #+RESULTS:
+   | complex_in |
+   |------------|
+   | (3,4)      |
+
+
+** complex-out
+
+   #+HEADER: :cmdline whatever
+   #+HEADER: :results output table :eval no-export
+   #+BEGIN_SRC sql :engine postgresql :exports both
+     SELECT complex_out('(3, 4)'::complex);
+   #+END_SRC
+
+   #+RESULTS:
+   | complex_out |
+   |-------------|
+   | (3,4)       |
+
+** type usage
+
+   #+HEADER: :cmdline whatever
+   #+HEADER: :results output table :eval no-export
+   #+BEGIN_SRC sql :engine postgresql :exports both
+     SELECT '(3, 4)'::complex AS value, pg_typeof('(3, 4)'::complex) AS type;
+   #+END_SRC
+
+   #+RESULTS:
+   | value | type    |
+   |-------+---------|
+   | (3,4) | complex |
