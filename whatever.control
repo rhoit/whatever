@@ -1,0 +1,4 @@
+comment = 'Complex number data type'
+default_version = '1.0'
+module_pathname = '$libdir/whatever'
+relocatable = true
